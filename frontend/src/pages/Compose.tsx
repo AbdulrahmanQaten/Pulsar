@@ -30,6 +30,16 @@ const Compose = () => {
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Check file size (5MB = 5 * 1024 * 1024 bytes)
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        toast.error("حجم الصورة كبير جداً! الحد الأقصى 5 ميجابايت");
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
@@ -59,11 +69,7 @@ const Compose = () => {
         >
           <ArrowRight className="h-5 w-5" />
         </button>
-        <Button
-          onClick={handleSubmit}
-          disabled={!content.trim()}
-          size="sm"
-        >
+        <Button onClick={handleSubmit} disabled={!content.trim()} size="sm">
           نشر
         </Button>
       </header>

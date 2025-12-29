@@ -94,6 +94,11 @@ postSchema.pre('save', function(next) {
   next();
 });
 
+// إضافة indexes لتحسين الأداء
+postSchema.index({ createdAt: -1 }); // للترتيب حسب التاريخ
+postSchema.index({ author: 1 }); // لجلب منشورات مستخدم معين
+postSchema.index({ createdAt: -1, author: 1 }); // compound index
+
 const Post = mongoose.model('Post', postSchema);
 
 export default Post;

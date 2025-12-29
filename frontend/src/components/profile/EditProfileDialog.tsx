@@ -27,7 +27,12 @@ interface EditProfileDialogProps {
   onSave: (updatedUser: UserProfile) => void;
 }
 
-const EditProfileDialog = ({ isOpen, onClose, user, onSave }: EditProfileDialogProps) => {
+const EditProfileDialog = ({
+  isOpen,
+  onClose,
+  user,
+  onSave,
+}: EditProfileDialogProps) => {
   const [displayName, setDisplayName] = useState(user.displayName);
   const [username, setUsername] = useState(user.username);
   const [bio, setBio] = useState(user.bio);
@@ -43,6 +48,20 @@ const EditProfileDialog = ({ isOpen, onClose, user, onSave }: EditProfileDialogP
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Check file size (5MB = 5 * 1024 * 1024 bytes)
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        toast({
+          title: "خطأ",
+          description: "حجم الصورة كبير جداً! الحد الأقصى 5 ميجابايت",
+          variant: "destructive",
+        });
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (event) => {
         setAvatar(event.target?.result as string);
@@ -77,7 +96,10 @@ const EditProfileDialog = ({ isOpen, onClose, user, onSave }: EditProfileDialogP
           {/* Avatar upload */}
           <div className="flex justify-center">
             <div className="relative">
-              <Avatar className="h-20 w-20 border-2 border-border cursor-pointer" onClick={handleAvatarClick}>
+              <Avatar
+                className="h-20 w-20 border-2 border-border cursor-pointer"
+                onClick={handleAvatarClick}
+              >
                 <AvatarImage src={avatar} />
                 <AvatarFallback className="bg-secondary text-lg">
                   {displayName.slice(0, 2)}
@@ -147,9 +169,7 @@ const EditProfileDialog = ({ isOpen, onClose, user, onSave }: EditProfileDialogP
           <Button variant="outline" onClick={onClose}>
             إلغاء
           </Button>
-          <Button onClick={handleSave}>
-            حفظ
-          </Button>
+          <Button onClick={handleSave}>حفظ</Button>
         </div>
       </DialogContent>
     </Dialog>

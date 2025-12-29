@@ -1,38 +1,82 @@
 import Layout from "@/components/layout/Layout";
 import PostCard from "@/components/post/PostCard";
 import ComposeTweet from "@/components/post/ComposeTweet";
-import { useState, useEffect } from "react";
 import { Post } from "@/components/post/PostCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { postsAPI } from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 const Index = () => {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
   const { user, isLoggedIn } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // Fetch posts on mount
-  useEffect(() => {
-    fetchPosts();
-  }, []);
-
-  const fetchPosts = async () => {
-    try {
-      setLoading(true);
+  // جلب المنشورات مع caching تلقائي
+  const { data: posts = [], isLoading: loading } = useQuery({
+    queryKey: ["posts"],
+    queryFn: async () => {
       const response = await postsAPI.getAllPosts();
-      setPosts(response.data.posts);
-    } catch (error: any) {
+      // Backend now returns { posts, pagination }
+      return response.data.posts || [];
+    },
+  });
+
+  // إنشاء منشور جديد مع optimistic update
+  const createPostMutation = useMutation({
+    mutationFn: (data: { content: string; image?: string }) =>
+      postsAPI.createPost(data),
+    onMutate: async (newPostData) => {
+      // إلغاء أي refetch جاري
+      await queryClient.cancelQueries({ queryKey: ["posts"] });
+
+      // حفظ البيانات القديمة
+      const previousPosts = queryClient.getQueryData(["posts"]);
+
+      // تحديث فوري (optimistic)
+      const optimisticPost: Post = {
+        id: `temp-${Date.now()}`,
+        content: newPostData.content,
+        image: newPostData.image,
+        author: {
+          id: user?.id || "",
+          username: user?.username || "",
+          displayName: user?.displayName || "",
+          avatar: user?.avatar,
+        },
+        likes: 0,
+        dislikes: 0,
+        comments: [],
+        reposts: 0,
+        createdAt: new Date().toISOString(),
+        isLiked: false,
+        isDisliked: false,
+      };
+
+      queryClient.setQueryData(["posts"], (old: Post[] = []) => [
+        optimisticPost,
+        ...old,
+      ]);
+
+      return { previousPosts };
+    },
+    onSuccess: (response) => {
+      // استبدال المنشور المؤقت بالمنشور الحقيقي
+      queryClient.setQueryData(["posts"], (old: Post[] = []) => {
+        const newPost = response.data.post;
+        return [newPost, ...old.filter((p) => !p.id.startsWith("temp-"))];
+      });
+    },
+    onError: (error, newPost, context) => {
+      // إرجاع البيانات القديمة في حالة الخطأ
+      queryClient.setQueryData(["posts"], context?.previousPosts);
       toast({
         title: "خطأ",
-        description: "فشل تحميل المنشورات",
+        description: "فشل نشر المنشور",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+  });
 
   const handleNewPost = async (content: string, image?: string) => {
     if (!isLoggedIn) {
@@ -44,21 +88,11 @@ const Index = () => {
       return;
     }
 
-    try {
-      const response = await postsAPI.createPost({ content, image });
-      const newPost = response.data.post;
-      setPosts([newPost, ...posts]);
-      toast({
-        title: "نجح",
-        description: "تم نشر المنشور بنجاح",
-      });
-    } catch (error: any) {
-      toast({
-        title: "خطأ",
-        description: error.response?.data?.error || "فشل نشر المنشور",
-        variant: "destructive",
-      });
-    }
+    createPostMutation.mutate({ content, image });
+    toast({
+      title: "نجح",
+      description: "تم نشر المنشور بنجاح",
+    });
   };
 
   const handleDeletePost = async (postId: string) => {

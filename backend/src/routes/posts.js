@@ -4,14 +4,23 @@ import auth from '../middleware/auth.js';
 
 const router = express.Router();
 
-// الحصول على جميع المنشورات (التغذية)
+// الحصول على جميع المنشورات (التغذية) مع pagination
 router.get('/', async (req, res, next) => {
   try {
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20; // 20 منشور لكل صفحة
+    const skip = (page - 1) * limit;
+
     const posts = await Post.find()
       .populate('author', 'username displayName avatar')
       .populate('comments.author', 'username displayName avatar')
       .sort({ createdAt: -1 })
-      .limit(50);
+      .skip(skip)
+      .limit(limit);
+
+    // Get total count for pagination info
+    const total = await Post.countDocuments();
 
     // Get current user ID from token if available
     let currentUserId = null;
@@ -44,7 +53,16 @@ router.get('/', async (req, res, next) => {
       isLiked: currentUserId ? post.likes.includes(currentUserId) : false,
     }));
 
-    res.json({ posts: formattedPosts });
+    res.json({ 
+      posts: formattedPosts,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+        hasMore: page < Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     next(error);
   }
