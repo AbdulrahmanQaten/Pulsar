@@ -49,7 +49,6 @@ const Index = () => {
         reposts: 0,
         createdAt: new Date().toISOString(),
         isLiked: false,
-        isDisliked: false,
       };
 
       queryClient.setQueryData(["posts"], (old: Post[] = []) => [
