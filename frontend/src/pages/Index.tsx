@@ -45,8 +45,7 @@ const Index = () => {
           avatar: user?.avatar,
         },
         likes: 0,
-        dislikes: 0,
-        comments: [],
+        comments: 0,
         reposts: 0,
         createdAt: new Date().toISOString(),
         isLiked: false,
@@ -98,7 +97,12 @@ const Index = () => {
   const handleDeletePost = async (postId: string) => {
     try {
       await postsAPI.deletePost(postId);
-      setPosts((prev) => prev.filter((p) => p.id !== postId));
+
+      // تحديث الـ cache بحذف المنشور
+      queryClient.setQueryData(["posts"], (old: Post[] = []) =>
+        old.filter((p) => p.id !== postId)
+      );
+
       toast({
         title: "تم الحذف",
         description: "تم حذف المنشور بنجاح",
@@ -120,7 +124,12 @@ const Index = () => {
     try {
       const response = await postsAPI.updatePost(postId, { content, image });
       const updatedPost = response.data.post;
-      setPosts((prev) => prev.map((p) => (p.id === postId ? updatedPost : p)));
+
+      // تحديث الـ cache بالمنشور المعدل
+      queryClient.setQueryData(["posts"], (old: Post[] = []) =>
+        old.map((p) => (p.id === postId ? updatedPost : p))
+      );
+
       toast({
         title: "تم التعديل",
         description: "تم تعديل المنشور بنجاح",
